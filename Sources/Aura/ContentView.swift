@@ -9,8 +9,14 @@ struct ContentView: View {
 
     @State private var inputText = ""
     @State private var hoveredSuggestion: CommandMode? = nil
+    @State private var selectedSuggestionIndex: Int? = nil
     @State private var specialResult: SpecialResult? = nil
     @State private var showSettings = false
+
+    private var hasAPIKey: Bool {
+        KeychainHelper.read(key: "openai_api_key") != nil
+            || !(UserDefaults.standard.string(forKey: "aura_custom_endpoint") ?? "").isEmpty
+    }
 
     private var commandSuggestions: [CommandMode] {
         guard store.activeMode == nil, specialResult == nil else { return [] }
@@ -31,36 +37,41 @@ struct ContentView: View {
                     }
                     onHeightChange()
                 })
+                .transition(.opacity.combined(with: .move(edge: .top)))
             } else {
                 InputBarView(
                     text: $inputText,
                     activeMode: $store.activeMode,
                     isStreaming: store.isStreaming,
-                    onSubmit: sendMessage,
+                    onSubmit: handleSubmitOrSelect,
                     onDismiss: onDismiss,
                     onClear: clearConversation,
-                    onHistoryNavigate: navigateHistory,
-                    onClipboard: { specialResult = .clipboard; onHeightChange() }
+                    onArrow: handleArrowKey,
+                    onClipboard: { specialResult = .clipboard; onHeightChange() },
+                    onStop: { store.clear(); onHeightChange() }
                 )
 
                 Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5)
 
-                if !commandSuggestions.isEmpty {
-                    commandSuggestionsView
-                } else if let special = specialResult {
-                    SpecialResultView(result: special)
-                } else if let error = store.errorMessage {
-                    errorView(error)
-                } else if store.messages.isEmpty && !store.isStreaming {
-                    emptyStateView
-                } else {
-                    ZStack(alignment: .topTrailing) {
-                        ResponseView(text: displayText, isStreaming: store.isStreaming)
-                        if !displayText.isEmpty && !store.isStreaming {
-                            CopyButton(text: displayText).padding(10)
+                Group {
+                    if !commandSuggestions.isEmpty {
+                        commandSuggestionsView
+                    } else if let special = specialResult {
+                        SpecialResultView(result: special)
+                    } else if let error = store.errorMessage {
+                        errorView(error)
+                    } else if store.messages.isEmpty && !store.isStreaming {
+                        emptyStateView
+                    } else {
+                        ZStack(alignment: .topTrailing) {
+                            ResponseView(text: displayText, isStreaming: store.isStreaming)
+                            if !displayText.isEmpty && !store.isStreaming {
+                                CopyButton(text: displayText).padding(10)
+                            }
                         }
                     }
                 }
+                .animation(.easeInOut(duration: 0.15), value: store.errorMessage == nil)
             }
 
             FooterView(model: $store.selectedModel, persona: $store.selectedPersona, showSettings: $showSettings)
@@ -69,29 +80,33 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .overlay(
             RoundedRectangle(cornerRadius: 28)
-                .stroke(Color.white.opacity(0.14), lineWidth: 0.6)
+                .stroke(Color.panelBorder, lineWidth: 0.6)
         )
-        .onChange(of: commandSuggestions.count) { onHeightChange() }
-        .onChange(of: store.isStreaming) { onHeightChange() }
-        .onChange(of: store.currentResponse) { onHeightChange() }
-        .onChange(of: store.errorMessage) { onHeightChange() }
-        .onChange(of: store.messages.count) { onHeightChange() }
-        .onChange(of: specialResult) { onHeightChange() }
-        .onChange(of: showSettings) { onHeightChange() }
+        .onChange(of: commandSuggestions.count) {
+            selectedSuggestionIndex = nil
+            scheduleHeightUpdate()
+        }
+        .onChange(of: store.isStreaming) { scheduleHeightUpdate() }
+        .onChange(of: store.currentResponse) { scheduleHeightUpdate() }
+        .onChange(of: store.errorMessage) { scheduleHeightUpdate() }
+        .onChange(of: store.messages.count) { scheduleHeightUpdate() }
+        .onChange(of: specialResult) { scheduleHeightUpdate() }
+        .onChange(of: showSettings) { scheduleHeightUpdate() }
     }
 
     // MARK: - Subviews
 
     private var commandSuggestionsView: some View {
         VStack(spacing: 0) {
-            ForEach(commandSuggestions) { mode in
+            ForEach(Array(commandSuggestions.enumerated()), id: \.element.id) { index, mode in
+                let isHighlighted = selectedSuggestionIndex == index || hoveredSuggestion == mode
                 Button {
                     selectCommand(mode)
                 } label: {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(Color.auraAccent.opacity(hoveredSuggestion == mode ? 0.18 : 0.10))
+                                .fill(Color.auraAccent.opacity(isHighlighted ? 0.18 : 0.10))
                                 .frame(width: 28, height: 28)
                             Image(systemName: mode.icon)
                                 .font(.system(size: 12, weight: .medium))
@@ -108,17 +123,26 @@ struct ContentView: View {
                         }
                         Spacer()
 
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.tertiary)
+                        if isHighlighted {
+                            Text("↵")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(hoveredSuggestion == mode ? Color.primary.opacity(0.05) : Color.clear)
+                    .background(isHighlighted ? Color.primary.opacity(0.05) : Color.clear)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .onHover { hoveredSuggestion = $0 ? mode : nil }
+                .onHover { isHovering in
+                    hoveredSuggestion = isHovering ? mode : nil
+                    if isHovering { selectedSuggestionIndex = nil }
+                }
 
                 if mode != commandSuggestions.last {
                     Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5).padding(.horizontal, 16)
@@ -129,39 +153,69 @@ struct ContentView: View {
     }
 
     private var emptyStateView: some View {
-        HStack(spacing: 6) {
-            Text("Type")
-                .foregroundStyle(.tertiary)
-            Text("/")
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.primary.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-            Text("for commands · ask anything · or")
-                .foregroundStyle(.tertiary)
-            Button {
-                specialResult = .clipboard
-                onHeightChange()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "doc.on.clipboard").font(.system(size: 10))
-                    Text("clipboard")
+        VStack(alignment: .leading, spacing: 12) {
+            if !hasAPIKey {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        showSettings = true
+                    }
+                    onHeightChange()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "key.fill")
+                            .font(.system(size: 11))
+                        Text("Set up your API key to get started")
+                            .font(.system(size: 12, weight: .medium))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.auraAccent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.auraAccent.opacity(0.07))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(Color.primary.opacity(0.08))
-                .clipShape(Capsule())
+                .buttonStyle(.plain)
+                .padding(.horizontal, 18)
+                .padding(.top, 14)
             }
-            .buttonStyle(.plain)
-            Spacer()
+
+            HStack(spacing: 6) {
+                Text("Type")
+                    .foregroundStyle(.tertiary)
+                Text("/")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.primary.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                Text("for commands · ask anything · or")
+                    .foregroundStyle(.tertiary)
+                Button {
+                    specialResult = .clipboard
+                    onHeightChange()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.clipboard").font(.system(size: 10))
+                        Text("clipboard")
+                    }
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.primary.opacity(0.08))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                Spacer()
+            }
+            .font(.system(size: 12))
+            .padding(.horizontal, 18)
+            .padding(.top, hasAPIKey ? 18 : 0)
+            .padding(.bottom, 18)
         }
-        .font(.system(size: 12))
-        .padding(.horizontal, 18)
-        .padding(.vertical, 18)
     }
 
     private func errorView(_ message: String) -> some View {
@@ -172,6 +226,19 @@ struct ContentView: View {
             Text(message)
                 .font(.system(size: 12))
                 .foregroundStyle(Color.auraAccent)
+            Spacer()
+            Button {
+                store.errorMessage = nil
+                onHeightChange()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Color.auraAccent.opacity(0.6))
+                    .padding(4)
+                    .background(Color.auraAccent.opacity(0.1))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -183,6 +250,37 @@ struct ContentView: View {
     }
 
     // MARK: - Actions
+
+    private func handleSubmitOrSelect() {
+        // If a suggestion is keyboard-selected, pick it
+        if let index = selectedSuggestionIndex, !commandSuggestions.isEmpty,
+           index < commandSuggestions.count {
+            selectCommand(commandSuggestions[index])
+            return
+        }
+        sendMessage()
+    }
+
+    private func handleArrowKey(up: Bool) {
+        // Arrow keys navigate suggestions when visible
+        if !commandSuggestions.isEmpty {
+            let count = commandSuggestions.count
+            if up {
+                selectedSuggestionIndex = selectedSuggestionIndex.map { max(0, $0 - 1) } ?? (count - 1)
+            } else {
+                if let idx = selectedSuggestionIndex {
+                    selectedSuggestionIndex = idx < count - 1 ? idx + 1 : nil
+                }
+            }
+            hoveredSuggestion = nil
+            return
+        }
+
+        // Otherwise navigate input history (only when text is empty)
+        if inputText.isEmpty {
+            if let text = store.navigateHistory(up: up) { inputText = text }
+        }
+    }
 
     private func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -206,11 +304,11 @@ struct ContentView: View {
                     let result = try await CurrencyHandler.shared.convert(text)
                     specialResult = .currency(result)
                 } catch CurrencyError.unsupportedCurrency(let code) {
-                    specialResult = .currencyError("Moeda não suportada: \(code)")
+                    specialResult = .currencyError("Unsupported currency: \(code)")
                 } catch {
                     // Network failure → fall through to AI
                     specialResult = nil
-                    await store.sendMessage(text)
+                    store.sendMessage(text)
                 }
                 onHeightChange()
             }
@@ -220,24 +318,28 @@ struct ContentView: View {
         // 3. AI
         specialResult = nil
         inputText = ""
-        Task { await store.sendMessage(text) }
+        store.sendMessage(text)
     }
 
     private func clearConversation() {
         store.clear()
         inputText = ""
         specialResult = nil
+        selectedSuggestionIndex = nil
         onHeightChange()
     }
 
-    private func navigateHistory(up: Bool) {
-        if let text = store.navigateHistory(up: up) { inputText = text }
+    /// Delays height recalculation to the next run-loop tick so that
+    /// SwiftUI has finished its layout pass and fittingSize is accurate.
+    private func scheduleHeightUpdate() {
+        DispatchQueue.main.async { onHeightChange() }
     }
 
     private func selectCommand(_ mode: CommandMode) {
         store.activeMode = mode
         inputText = ""
         hoveredSuggestion = nil
+        selectedSuggestionIndex = nil
     }
 }
 
@@ -284,7 +386,7 @@ struct FooterView: View {
 
         HStack(spacing: 12) {
             if showSettings {
-                Text("ESC or ✕ to close")
+                Text("ESC or X to close")
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
             } else {
@@ -415,5 +517,29 @@ extension Color {
         return isDark
             ? NSColor(red: 1.0,  green: 0.388, blue: 0.388, alpha: 1) // FF6363 - dark
             : NSColor(red: 0.75, green: 0.13,  blue: 0.13,  alpha: 1) // BF2020 - light
+    }))
+
+    static let codeBackground = Color(NSColor(name: nil, dynamicProvider: { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1) // 1A1A1E
+            : NSColor(red: 0.95, green: 0.95, blue: 0.96, alpha: 1) // F2F2F5
+    }))
+
+    static let codeText = Color(NSColor(name: nil, dynamicProvider: { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(red: 0.80, green: 0.84, blue: 0.96, alpha: 1) // CDD6F4
+            : NSColor(red: 0.15, green: 0.15, blue: 0.20, alpha: 1) // 262633
+    }))
+
+    static let inlineCodeBackground = Color(NSColor(name: nil, dynamicProvider: { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(red: 0.18, green: 0.18, blue: 0.18, alpha: 1) // 2E2E2E
+            : NSColor(red: 0.90, green: 0.90, blue: 0.92, alpha: 1) // E6E6EA
+    }))
+
+    static let panelBorder = Color(NSColor(name: nil, dynamicProvider: { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(white: 1.0, alpha: 0.14)
+            : NSColor(white: 0.0, alpha: 0.10)
     }))
 }

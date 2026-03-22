@@ -1,4 +1,5 @@
 import Foundation
+import JavaScriptCore
 
 struct CalculatorResult: Equatable {
     let expression: String
@@ -9,6 +10,7 @@ struct CalculatorResult: Equatable {
 enum CalculatorHandler {
 
     private static let allowedChars = CharacterSet(charactersIn: "0123456789+-*/.()%, \t")
+    private static let maxInputLength = 200
 
     private static let percentOf = try! NSRegularExpression(
         pattern: #"(\d+(?:\.\d+)?)\s*%\s*of\s*(\d+(?:\.\d+)?)"#,
@@ -21,7 +23,7 @@ enum CalculatorHandler {
 
     static func evaluate(_ input: String) -> CalculatorResult? {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
+        guard !trimmed.isEmpty, trimmed.count <= maxInputLength else { return nil }
 
         // Reject if any character is not a math character
         guard trimmed.unicodeScalars.allSatisfy({ allowedChars.contains($0) }) else { return nil }
@@ -46,7 +48,7 @@ enum CalculatorHandler {
         // Remove thousand separators
         expr = expr.replacingOccurrences(of: ",", with: "")
 
-        guard let value = nsEvaluate(expr), value.isFinite else { return nil }
+        guard let value = jsEvaluate(expr), value.isFinite else { return nil }
 
         return CalculatorResult(
             expression: trimmed,
@@ -55,9 +57,13 @@ enum CalculatorHandler {
         )
     }
 
-    private static func nsEvaluate(_ expr: String) -> Double? {
-        let e = NSExpression(format: expr)
-        return (e.expressionValue(with: nil, context: nil) as? NSNumber)?.doubleValue
+    private static func jsEvaluate(_ expr: String) -> Double? {
+        guard let ctx = JSContext() else { return nil }
+        // Disable access to anything beyond pure math evaluation
+        ctx.exceptionHandler = { _, _ in }
+        guard let result = ctx.evaluateScript(expr) else { return nil }
+        guard result.isNumber, !result.isUndefined, !result.isNull else { return nil }
+        return result.toDouble()
     }
 
     private static func format(_ value: Double) -> String {

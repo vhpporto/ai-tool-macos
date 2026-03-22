@@ -34,7 +34,7 @@ final class HotkeyManager {
             &eventHandlerRef
         )
 
-        var hotKeyID = EventHotKeyID(signature: fourCharCode("AURA"), id: 1)
+        let hotKeyID = EventHotKeyID(signature: fourCharCode("AURA"), id: 1)
         RegisterEventHotKey(
             UInt32(kVK_Space),
             UInt32(optionKey),
@@ -44,7 +44,9 @@ final class HotkeyManager {
             &hotKeyRef
         )
 
+        #if DEBUG
         print("[Aura] Carbon hotkey registered (Option+Space)")
+        #endif
     }
 
     func stop() {

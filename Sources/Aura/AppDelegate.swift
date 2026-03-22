@@ -1,17 +1,22 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
         print("[Aura] App launched")
+        #endif
 
         LauncherPanelController.shared.setup()
 
         HotkeyManager.shared.onToggle = {
+            #if DEBUG
             print("[Aura] Toggle called")
+            #endif
             LauncherPanelController.shared.toggle()
         }
         HotkeyManager.shared.start()

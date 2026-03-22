@@ -19,7 +19,8 @@ actor CurrencyHandler {
     static let shared = CurrencyHandler()
     private init() {}
 
-    private var cache: [String: Double] = [:]
+    private var cache: [String: (rate: Double, date: Date)] = [:]
+    private let cacheTTL: TimeInterval = 30 * 60 // 30 minutes
 
     // Exposed for synchronous pre-check in ContentView
     private static let pattern = try! NSRegularExpression(
@@ -71,7 +72,9 @@ actor CurrencyHandler {
 
     private func fetchRate(from: String, to: String) async throws -> Double {
         let key = "\(from)_\(to)"
-        if let cached = cache[key] { return cached }
+        if let cached = cache[key], Date().timeIntervalSince(cached.date) < cacheTTL {
+            return cached.rate
+        }
 
         var comps = URLComponents(string: "https://api.frankfurter.app/latest")!
         comps.queryItems = [
@@ -93,7 +96,7 @@ actor CurrencyHandler {
               let rates = json["rates"] as? [String: Double],
               let rate  = rates[to] else { throw CurrencyError.invalidResponse }
 
-        cache[key] = rate
+        cache[key] = (rate, Date())
         return rate
     }
 }

@@ -32,8 +32,8 @@ struct ResponseView: View {
             switch block {
             case .heading(let text, let level):
                 headingView(text, level: level)
-            case .codeBlock(let code):
-                codeBlockView(code)
+            case .codeBlock(let code, let language):
+                codeBlockView(code, language: language)
             case .bulletList(let items):
                 listView(items: items, numbered: false)
             case .numberedList(let items):
@@ -57,23 +57,41 @@ struct ResponseView: View {
     }
 
     @ViewBuilder
-    private func codeBlockView(_ code: String) -> some View {
-        ZStack(alignment: .topTrailing) {
-            Text(code)
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(Color(hex: 0xCDD6F4))
-                .textSelection(.enabled)
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
+    private func codeBlockView(_ code: String, language: String?) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let lang = language, !lang.isEmpty {
+                HStack {
+                    Text(lang)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary.opacity(0.7))
+                    Spacer()
+                    CodeCopyButton(code: code)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+            }
 
-            CodeCopyButton(code: code)
-                .padding(8)
+            ZStack(alignment: .topTrailing) {
+                Text(code)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(Color.codeText)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, language != nil ? 4 : 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if language == nil {
+                    CodeCopyButton(code: code)
+                        .padding(8)
+                }
+            }
         }
-        .background(Color(hex: 0x1A1A1E))
+        .background(Color.codeBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.08), lineWidth: 0.6)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 0.6)
         )
         .padding(.vertical, 4)
     }
@@ -115,7 +133,7 @@ struct ResponseView: View {
     private enum Block {
         case heading(String, level: Int)
         case text(String)
-        case codeBlock(String)
+        case codeBlock(String, language: String?)
         case bulletList([(Int, String)])
         case numberedList([(Int, String)])
     }
@@ -123,6 +141,7 @@ struct ResponseView: View {
     private func parseBlocks(_ raw: String) -> [Block] {
         var blocks: [Block] = []
         var inCodeBlock = false
+        var codeLanguage: String? = nil
         var codeLines: [String] = []
         var bulletItems: [(Int, String)] = []
         var numberedItems: [(Int, String)] = []
@@ -155,12 +174,15 @@ struct ResponseView: View {
             if trimmed.hasPrefix("```") {
                 if inCodeBlock {
                     flushLists()
-                    blocks.append(.codeBlock(codeLines.joined(separator: "\n")))
+                    blocks.append(.codeBlock(codeLines.joined(separator: "\n"), language: codeLanguage))
                     codeLines.removeAll()
+                    codeLanguage = nil
                     inCodeBlock = false
                 } else {
                     flushText()
                     flushLists()
+                    let lang = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                    codeLanguage = lang.isEmpty ? nil : lang
                     inCodeBlock = true
                 }
                 continue
@@ -198,7 +220,7 @@ struct ResponseView: View {
         }
 
         if inCodeBlock && !codeLines.isEmpty {
-            blocks.append(.codeBlock(codeLines.joined(separator: "\n")))
+            blocks.append(.codeBlock(codeLines.joined(separator: "\n"), language: codeLanguage))
         }
         flushText()
         flushLists()
@@ -245,7 +267,7 @@ struct ResponseView: View {
                 code = String(code.dropFirst(1).dropLast(1))
                 var attr = AttributedString(code)
                 attr.font = .system(size: 13, design: .monospaced)
-                attr.backgroundColor = Color(hex: 0x2E2E2E)
+                attr.backgroundColor = Color.inlineCodeBackground
                 result += attr
                 remaining = remaining[codeRange.upperBound...]
             } else {
@@ -277,10 +299,10 @@ private struct CodeCopyButton: View {
                 Text(copied ? "Copied" : "Copy")
                     .font(.system(size: 11))
             }
-            .foregroundStyle(copied ? Color(hex: 0x5CB85C) : Color(hex: 0x888888))
+            .foregroundStyle(copied ? Color(hex: 0x5CB85C) : .secondary)
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(Color(hex: 0x2C2C30))
+            .background(Color.primary.opacity(0.07))
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)

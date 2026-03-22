@@ -91,6 +91,12 @@ struct InlineSettingsView: View {
                     .overlay(RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.primary.opacity(0.09), lineWidth: 0.8))
 
+                    if let endpointError {
+                        Text(endpointError)
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.auraAccent)
+                    }
+
                     HStack {
                         Text("Leave blank to use OpenAI. Compatible with Ollama, LM Studio, etc.")
                             .font(.system(size: 10))
@@ -136,8 +142,22 @@ struct InlineSettingsView: View {
         }
     }
 
+    @State private var endpointError: String?
+
     private func saveEndpoint() {
         let trimmed = customEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !trimmed.isEmpty {
+            guard let url = URL(string: trimmed),
+                  let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  url.host != nil else {
+                endpointError = "Invalid URL. Must start with http:// or https://"
+                return
+            }
+        }
+
+        endpointError = nil
         UserDefaults.standard.set(trimmed, forKey: "aura_custom_endpoint")
         withAnimation(.easeInOut(duration: 0.15)) { endpointSaved = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {

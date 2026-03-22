@@ -96,6 +96,7 @@ final class OpenAIService: @unchecked Sendable {
             }
 
             for try await line in bytes.lines {
+                if Task.isCancelled { break }
                 guard line.hasPrefix("data: ") else { continue }
                 let payload = String(line.dropFirst(6))
                 if payload == "[DONE]" { break }

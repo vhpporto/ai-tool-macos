@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 
+@MainActor
 @Observable
 final class ConversationStore {
 
@@ -9,6 +10,10 @@ final class ConversationStore {
     var currentResponse = ""
     var errorMessage: String?
     var activeMode: CommandMode? = nil
+
+    // MARK: - Streaming task
+
+    private var streamTask: Task<Void, Never>?
 
     // MARK: - History
 
@@ -66,7 +71,7 @@ final class ConversationStore {
 
     // MARK: - Messaging
 
-    func sendMessage(_ text: String) async {
+    func sendMessage(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -80,27 +85,32 @@ final class ConversationStore {
 
         let systemPrompt = activeMode?.systemPrompt ?? selectedPersona.systemPrompt
 
-        await OpenAIService.shared.streamMessage(
-            messages: messages,
-            systemPrompt: systemPrompt,
-            model: selectedModel,
-            onToken: { [weak self] token in
-                self?.currentResponse += token
-            },
-            onComplete: { [weak self] in
-                guard let self else { return }
-                messages.append(ChatMessage(role: "assistant", content: currentResponse))
-                currentResponse = ""
-                isStreaming = false
-            },
-            onError: { [weak self] error in
-                self?.errorMessage = error.localizedDescription
-                self?.isStreaming = false
-            }
-        )
+        streamTask?.cancel()
+        streamTask = Task {
+            await OpenAIService.shared.streamMessage(
+                messages: messages,
+                systemPrompt: systemPrompt,
+                model: selectedModel,
+                onToken: { [weak self] token in
+                    self?.currentResponse += token
+                },
+                onComplete: { [weak self] in
+                    guard let self else { return }
+                    messages.append(ChatMessage(role: "assistant", content: currentResponse))
+                    currentResponse = ""
+                    isStreaming = false
+                },
+                onError: { [weak self] error in
+                    self?.errorMessage = error.localizedDescription
+                    self?.isStreaming = false
+                }
+            )
+        }
     }
 
     func clear() {
+        streamTask?.cancel()
+        streamTask = nil
         messages.removeAll()
         currentResponse = ""
         errorMessage = nil

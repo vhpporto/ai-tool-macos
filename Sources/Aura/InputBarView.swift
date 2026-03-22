@@ -8,8 +8,9 @@ struct InputBarView: View {
     var onSubmit: () -> Void
     var onDismiss: () -> Void
     var onClear: () -> Void
-    var onHistoryNavigate: (Bool) -> Void
+    var onArrow: (Bool) -> Void      // true = up, false = down
     var onClipboard: () -> Void = {}
+    var onStop: () -> Void = {}
 
     @FocusState private var isFocused: Bool
 
@@ -25,7 +26,7 @@ struct InputBarView: View {
 
             ZStack(alignment: .leading) {
                 if text.isEmpty {
-                    Text(activeMode.map { "Type to \($0.rawValue)..." } ?? "Ask anything dev...")
+                    Text(activeMode.map { "Type to \($0.rawValue)..." } ?? "Ask anything...")
                         .font(.system(size: 18, weight: .regular))
                         .foregroundStyle(.tertiary)
                         .allowsHitTesting(false)
@@ -45,12 +46,12 @@ struct InputBarView: View {
                         return .ignored
                     }
                     .onKeyPress(.upArrow) {
-                        if text.isEmpty { onHistoryNavigate(true); return .handled }
-                        return .ignored
+                        onArrow(true)
+                        return .handled
                     }
                     .onKeyPress(.downArrow) {
-                        if text.isEmpty { onHistoryNavigate(false); return .handled }
-                        return .ignored
+                        onArrow(false)
+                        return .handled
                     }
                     .onKeyPress(keys: [.init("v")], phases: .down) { press in
                         if press.modifiers.contains(.command) && press.modifiers.contains(.shift) {
@@ -61,9 +62,13 @@ struct InputBarView: View {
             }
 
             if isStreaming {
-                ProgressView()
-                    .controlSize(.small)
-                    .scaleEffect(0.8)
+                Button(action: onStop) {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color.auraAccent.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+                .transition(.scale.combined(with: .opacity))
             } else if !text.isEmpty {
                 Button(action: { text = "" }) {
                     Image(systemName: "xmark.circle.fill")

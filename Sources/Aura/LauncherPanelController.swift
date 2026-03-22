@@ -16,6 +16,7 @@ private final class ZeroInsetsHostingView<Content: View>: NSHostingView<Content>
     override var safeAreaInsets: NSEdgeInsets { .init() }
 }
 
+@MainActor
 final class LauncherPanelController {
 
     static let shared = LauncherPanelController()
@@ -91,10 +92,25 @@ final class LauncherPanelController {
         guard let panel else { return }
 
         store.clear()
-        positionPanel(height: initialHeight)
+
+        if let saved = loadSavedFrame() {
+            panel.setFrame(saved, display: true)
+        } else {
+            positionPanel(height: initialHeight)
+        }
+
+        // Animate in: start transparent + slightly scaled, then animate to full
+        panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
+
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.18
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+        }
+
         ClipboardMonitor.shared.start()
 
         NotificationCenter.default.addObserver(
@@ -102,19 +118,31 @@ final class LauncherPanelController {
             object: panel.contentView,
             queue: .main
         ) { [weak self] _ in
-            self?.constrainHeight()
+            MainActor.assumeIsolated {
+                self?.constrainHeight()
+            }
         }
     }
 
     func hide() {
-        if let panel {
-            // Save top edge (origin.y + height) so restore is independent of current height
-            let topEdge = panel.frame.origin.y + panel.frame.height
-            UserDefaults.standard.set(panel.frame.origin.x, forKey: "aura_panel_x")
-            UserDefaults.standard.set(topEdge, forKey: "aura_panel_top_edge")
-        }
-        panel?.orderOut(nil)
-        NotificationCenter.default.removeObserver(self)
+        guard let panel else { return }
+
+        // Save position before hiding
+        let topEdge = panel.frame.origin.y + panel.frame.height
+        UserDefaults.standard.set(panel.frame.origin.x, forKey: "aura_panel_x")
+        UserDefaults.standard.set(topEdge, forKey: "aura_panel_top_edge")
+
+        // Animate out: fade to transparent
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.12
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            panel.orderOut(nil)
+            panel.alphaValue = 1 // Reset for next show
+            NotificationCenter.default.removeObserver(self as Any)
+        })
+
         ClipboardMonitor.shared.stop()
     }
 
@@ -144,7 +172,12 @@ final class LauncherPanelController {
 
     func constrainHeight() {
         guard let panel, let hosting = hostingView else { return }
+
+        // Force layout pass so fittingSize reflects current SwiftUI content
+        hosting.layoutSubtreeIfNeeded()
+
         let ideal = hosting.fittingSize.height
+        guard ideal > 0 else { return }
         var clamped = min(ideal, maxHeight)
 
         // Don't let the panel go below the visible screen area
@@ -154,6 +187,8 @@ final class LauncherPanelController {
             let minY = screen.visibleFrame.minY + 8
             clamped = min(clamped, topEdge - minY)
         }
+
+        clamped = max(clamped, 0)
 
         if abs(panel.frame.height - clamped) > 1 {
             let current = panel.frame

@@ -13,6 +13,7 @@ let package = Package(
                 .linkedFramework("SwiftUI"),
                 .linkedFramework("Security"),
                 .linkedFramework("Carbon"),
+                .linkedFramework("JavaScriptCore"),
             ]
         )
     ]
