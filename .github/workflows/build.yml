@@ -20,5 +20,4 @@ jobs:
         run: swift --version
 
       - name: Build
-        working-directory: Aura
         run: swift build 2>&1
