@@ -21,3 +21,19 @@ jobs:
 
       - name: Build
         run: swift build 2>&1
+
+      - name: Create tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git fetch --tags
+          LATEST=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
+          if [ -z "$LATEST" ]; then
+            NEXT="v1.0.0"
+          else
+            PATCH=$(echo "$LATEST" | awk -F. '{print $3}')
+            PREFIX=$(echo "$LATEST" | awk -F. '{print $1"."$2"."}')
+            NEXT="${PREFIX}$((PATCH + 1))"
+          fi
+          echo "Tagging $NEXT"
+          git tag "$NEXT"
+          git push origin "$NEXT"
