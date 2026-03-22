@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 
+@MainActor
 struct ContentView: View {
 
     @Bindable var store: ConversationStore
