@@ -17,7 +17,7 @@ struct InlineSettingsView: View {
             // MARK: Header
             HStack {
                 Text("Settings")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Button(action: onDone) {
@@ -26,21 +26,21 @@ struct InlineSettingsView: View {
                         .foregroundStyle(.secondary.opacity(0.5))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close settings")
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 18)
-            .padding(.bottom, 14)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
 
-            Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5)
+            Divider()
 
             VStack(alignment: .leading, spacing: 20) {
 
                 // MARK: API Key
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("OPENAI API KEY")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .tracking(0.8)
+                    Text("OpenAI API Key")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
 
                     HStack(spacing: 10) {
                         Image(systemName: "key.fill")
@@ -54,8 +54,8 @@ struct InlineSettingsView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(Color.primary.opacity(0.05))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10)
                         .stroke(Color.primary.opacity(0.09), lineWidth: 0.8))
 
                     HStack {
@@ -65,14 +65,13 @@ struct InlineSettingsView: View {
                     }
                 }
 
-                Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5)
+                Divider()
 
                 // MARK: Custom Endpoint
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("CUSTOM ENDPOINT")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .tracking(0.8)
+                    Text("Custom Endpoint")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
 
                     HStack(spacing: 10) {
                         Image(systemName: "network")
@@ -87,44 +86,43 @@ struct InlineSettingsView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(Color.primary.opacity(0.05))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10)
                         .stroke(Color.primary.opacity(0.09), lineWidth: 0.8))
 
                     if let endpointError {
                         Text(endpointError)
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.auraAccent)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.auraError)
                     }
 
                     HStack {
-                        Text("Leave blank to use OpenAI. Compatible with Ollama, LM Studio, etc.")
-                            .font(.system(size: 10))
+                        Text("Leave blank for OpenAI. Works with Ollama, LM Studio, etc.")
+                            .font(.system(size: 11))
                             .foregroundStyle(.tertiary)
                         Spacer()
                         Button {
                             saveEndpoint()
                         } label: {
-                            Text(endpointSaved ? "Saved!" : "Save")
+                            Text(endpointSaved ? "Saved" : "Save")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(endpointSaved ? Color(hex: 0x5CB85C) : .white)
+                                .foregroundStyle(endpointSaved ? Color.auraSuccess : .white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 7)
-                                .background(endpointSaved ? Color(hex: 0x5CB85C).opacity(0.15) : Color.auraAccent.opacity(0.85))
+                                .background(endpointSaved ? Color.auraSuccess.opacity(0.15) : Color.auraAccent.opacity(0.85))
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
                     }
                 }
 
-                Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5)
+                Divider()
 
                 // MARK: Model
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("MODEL")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .tracking(0.8)
+                    Text("Model")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
 
                     VStack(spacing: 4) {
                         ForEach(ConversationStore.availableModels, id: \.self) { model in
@@ -133,8 +131,8 @@ struct InlineSettingsView: View {
                     }
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 18)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
         }
         .onAppear {
             keyStatus = KeychainHelper.read(key: "openai_api_key") != nil ? .configured : .missing
@@ -206,7 +204,7 @@ struct InlineSettingsView: View {
                         .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     Text(modelDescription(model))
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundStyle(.tertiary)
                 }
 
@@ -215,13 +213,15 @@ struct InlineSettingsView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
             .background(isSelected ? Color.auraAccent.opacity(0.08) : Color.primary.opacity(0.03))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 10)
                     .stroke(isSelected ? Color.auraAccent.opacity(0.25) : Color.primary.opacity(0.07), lineWidth: 0.8)
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(model): \(modelDescription(model))")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func modelDescription(_ model: String) -> String {
@@ -245,15 +245,15 @@ struct InlineSettingsView: View {
                 Image(systemName: "checkmark.circle.fill")
                 Text("Key configured")
             }
-            .font(.system(size: 11))
-            .foregroundStyle(Color(hex: 0x5CB85C))
+            .font(.system(size: 12))
+            .foregroundStyle(Color.auraSuccess)
         case .missing:
             HStack(spacing: 5) {
                 Image(systemName: "exclamationmark.triangle.fill")
                 Text("Not configured")
             }
-            .font(.system(size: 11))
-            .foregroundStyle(Color.auraAccent)
+            .font(.system(size: 12))
+            .foregroundStyle(Color.auraError)
         }
     }
 }

@@ -69,6 +69,7 @@ struct InputBarView: View {
                 }
                 .buttonStyle(.plain)
                 .transition(.scale.combined(with: .opacity))
+                .accessibilityLabel("Stop generating")
             } else if !text.isEmpty {
                 Button(action: { text = "" }) {
                     Image(systemName: "xmark.circle.fill")
@@ -76,10 +77,11 @@ struct InputBarView: View {
                         .foregroundStyle(Color.secondary.opacity(0.5))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Clear input")
             }
         }
-        .padding(.horizontal, 18)
-        .frame(height: 62)
+        .padding(.horizontal, 16)
+        .frame(height: 52)
         .onAppear { isFocused = true }
     }
 }

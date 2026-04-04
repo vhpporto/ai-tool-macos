@@ -52,7 +52,7 @@ struct ContentView: View {
                     onStop: { store.clear(); onHeightChange() }
                 )
 
-                Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5)
+                Divider()
 
                 Group {
                     if !commandSuggestions.isEmpty {
@@ -67,7 +67,7 @@ struct ContentView: View {
                         ZStack(alignment: .topTrailing) {
                             ResponseView(text: displayText, isStreaming: store.isStreaming)
                             if !displayText.isEmpty && !store.isStreaming {
-                                CopyButton(text: displayText).padding(10)
+                                AuraCopyButton(text: displayText).padding(10)
                             }
                         }
                     }
@@ -146,7 +146,7 @@ struct ContentView: View {
                 }
 
                 if mode != commandSuggestions.last {
-                    Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5).padding(.horizontal, 16)
+                    Divider().padding(.horizontal, 16)
                 }
             }
         }
@@ -164,12 +164,12 @@ struct ContentView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "key.fill")
-                            .font(.system(size: 11))
+                            .font(.system(size: 12))
                         Text("Set up your API key to get started")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                     }
                     .foregroundStyle(Color.auraAccent)
                     .padding(.horizontal, 14)
@@ -178,12 +178,13 @@ struct ContentView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, 18)
-                .padding(.top, 14)
+                .accessibilityLabel("Configure API key")
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
             }
 
             HStack(spacing: 6) {
-                Text("Type")
+                Text("Ask anything or type")
                     .foregroundStyle(.tertiary)
                 Text("/")
                     .fontWeight(.semibold)
@@ -191,31 +192,15 @@ struct ContentView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(Color.primary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 7))
-                Text("for commands · ask anything · or")
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                Text("for commands")
                     .foregroundStyle(.tertiary)
-                Button {
-                    specialResult = .clipboard
-                    onHeightChange()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "doc.on.clipboard").font(.system(size: 10))
-                        Text("clipboard")
-                    }
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Color.primary.opacity(0.08))
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
                 Spacer()
             }
-            .font(.system(size: 12))
-            .padding(.horizontal, 18)
-            .padding(.top, hasAPIKey ? 18 : 0)
-            .padding(.bottom, 18)
+            .font(.system(size: 13))
+            .padding(.horizontal, 16)
+            .padding(.top, hasAPIKey ? 16 : 0)
+            .padding(.bottom, 16)
         }
     }
 
@@ -223,10 +208,10 @@ struct ContentView: View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 12))
-                .foregroundStyle(Color.auraAccent)
+                .foregroundStyle(Color.auraError)
             Text(message)
-                .font(.system(size: 12))
-                .foregroundStyle(Color.auraAccent)
+                .font(.system(size: 13))
+                .foregroundStyle(Color.auraError)
             Spacer()
             Button {
                 store.errorMessage = nil
@@ -234,17 +219,18 @@ struct ContentView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Color.auraAccent.opacity(0.6))
+                    .foregroundStyle(Color.auraError.opacity(0.6))
                     .padding(4)
-                    .background(Color.auraAccent.opacity(0.1))
+                    .background(Color.auraError.opacity(0.1))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss error")
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.auraAccent.opacity(0.07))
+        .background(Color.auraError.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -344,57 +330,22 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Copy Button
-
-private struct CopyButton: View {
-    let text: String
-    @State private var copied = false
-
-    var body: some View {
-        Button {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { copied = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { copied = false }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 10, weight: .medium))
-                Text(copied ? "Copied" : "Copy").font(.system(size: 11))
-            }
-            .foregroundStyle(copied ? Color(hex: 0x5CB85C) : .secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Color.primary.opacity(0.07))
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.primary.opacity(0.09), lineWidth: 0.6))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 // MARK: - Footer
 
 struct FooterView: View {
     @Binding var model: String
     @Binding var persona: ConversationStore.Persona
     @Binding var showSettings: Bool
+    @State private var settingsHovered = false
 
     var body: some View {
-        Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.5)
+        Divider()
 
         HStack(spacing: 12) {
             if showSettings {
-                Text("ESC or X to close")
-                    .font(.system(size: 11))
+                Text("ESC to close")
+                    .font(.system(size: 12))
                     .foregroundStyle(.tertiary)
-            } else {
-                shortcutLabel("↵", "send")
-                shortcutLabel("esc", "close")
-                shortcutLabel("⌘K", "clear")
-                shortcutLabel("⌘⇧V", "clipboard")
             }
             Spacer()
             if !showSettings {
@@ -403,8 +354,8 @@ struct FooterView: View {
             }
             settingsButton
         }
-        .padding(.horizontal, 18)
-        .frame(height: 32)
+        .padding(.horizontal, 16)
+        .frame(height: 36)
         .background(Color.primary.opacity(0.03))
     }
 
@@ -416,18 +367,11 @@ struct FooterView: View {
         } label: {
             Image(systemName: showSettings ? "gearshape.fill" : "gearshape")
                 .font(.system(size: 12))
-                .foregroundStyle(showSettings ? Color.auraAccent : Color.secondary.opacity(0.6))
+                .foregroundStyle(showSettings ? Color.auraAccent : Color.secondary.opacity(settingsHovered ? 1 : 0.6))
         }
         .buttonStyle(.plain)
-    }
-
-    private func shortcutLabel(_ key: String, _ label: String) -> some View {
-        HStack(spacing: 3) {
-            Text(key).fontWeight(.medium)
-            Text(label)
-        }
-        .font(.system(size: 11))
-        .foregroundStyle(.tertiary)
+        .onHover { settingsHovered = $0 }
+        .accessibilityLabel(showSettings ? "Close settings" : "Open settings")
     }
 }
 
@@ -454,7 +398,7 @@ private struct PersonaToggle: View {
                        : Color.clear
         return Button { selected = persona } label: {
             Text(persona.rawValue)
-                .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color.auraAccent : Color.secondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
@@ -463,6 +407,8 @@ private struct PersonaToggle: View {
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 ? persona : nil }
+        .accessibilityLabel("\(persona.rawValue) mode")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -488,9 +434,9 @@ private struct ModelPicker: View {
         } label: {
             HStack(spacing: 3) {
                 Text(selected)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 7, weight: .medium))
+                    .font(.system(size: 8, weight: .medium))
             }
             .foregroundStyle(.tertiary)
         }
@@ -512,13 +458,24 @@ extension Color {
         )
     }
 
-    // Adapts between dark and light mode
+    // Primary accent — used for interactive elements, branding
     static let auraAccent = Color(NSColor(name: nil, dynamicProvider: { appearance in
         let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         return isDark
             ? NSColor(red: 1.0,  green: 0.388, blue: 0.388, alpha: 1) // FF6363 - dark
             : NSColor(red: 0.75, green: 0.13,  blue: 0.13,  alpha: 1) // BF2020 - light
     }))
+
+    // Semantic error color — distinct from accent to avoid confusion
+    static let auraError = Color(NSColor(name: nil, dynamicProvider: { appearance in
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark
+            ? NSColor(red: 1.0,  green: 0.45, blue: 0.35, alpha: 1) // FF7359
+            : NSColor(red: 0.80, green: 0.20, blue: 0.15, alpha: 1) // CC3326
+    }))
+
+    // Semantic success color
+    static let auraSuccess = Color(hex: 0x5CB85C)
 
     static let codeBackground = Color(NSColor(name: nil, dynamicProvider: { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -543,4 +500,40 @@ extension Color {
             ? NSColor(white: 1.0, alpha: 0.14)
             : NSColor(white: 0.0, alpha: 0.10)
     }))
+}
+
+// MARK: - Unified Copy Button
+
+struct AuraCopyButton: View {
+    let text: String
+    var showLabel: Bool = true
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { copied = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { copied = false }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 10, weight: .medium))
+                if showLabel {
+                    Text(copied ? "Copied" : "Copy")
+                        .font(.system(size: 11))
+                }
+            }
+            .foregroundStyle(copied ? Color.auraSuccess : .secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.primary.opacity(0.07))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.primary.opacity(0.09), lineWidth: 0.6))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(copied ? "Copied to clipboard" : "Copy to clipboard")
+    }
 }

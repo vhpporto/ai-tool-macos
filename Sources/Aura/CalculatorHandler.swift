@@ -25,10 +25,7 @@ enum CalculatorHandler {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= maxInputLength else { return nil }
 
-        // Reject if any character is not a math character
-        guard trimmed.unicodeScalars.allSatisfy({ allowedChars.contains($0) }) else { return nil }
-
-        // Must have at least one operator or paren (not just a bare number)
+        // Must have at least one operator, paren, or percent (not just a bare number)
         guard trimmed.contains(where: { "+-*/%()".contains($0) }) else { return nil }
 
         var expr = trimmed
@@ -47,6 +44,9 @@ enum CalculatorHandler {
 
         // Remove thousand separators
         expr = expr.replacingOccurrences(of: ",", with: "")
+
+        // Reject if any remaining character is not a math character
+        guard expr.unicodeScalars.allSatisfy({ allowedChars.contains($0) }) else { return nil }
 
         guard let value = jsEvaluate(expr), value.isFinite else { return nil }
 

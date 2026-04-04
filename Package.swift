@@ -15,6 +15,11 @@ let package = Package(
                 .linkedFramework("Carbon"),
                 .linkedFramework("JavaScriptCore"),
             ]
+        ),
+        .testTarget(
+            name: "AuraTests",
+            dependencies: ["Aura"],
+            path: "Tests/AuraTests"
         )
     ]
 )

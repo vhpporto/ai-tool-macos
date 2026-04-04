@@ -24,7 +24,7 @@ final class LauncherPanelController {
     private var panel: NSPanel?
     private var hostingView: NSHostingView<ContentView>?
     private let panelWidth: CGFloat = 816
-    private let initialHeight: CGFloat = 160
+    private let initialHeight: CGFloat = 148
     private let maxHeight: CGFloat = 676
     private let store = ConversationStore()
 
@@ -101,14 +101,26 @@ final class LauncherPanelController {
 
         // Animate in: start transparent + slightly scaled, then animate to full
         panel.alphaValue = 0
+        if let contentLayer = panel.contentView?.layer {
+            contentLayer.setAffineTransform(CGAffineTransform(scaleX: 0.97, y: 0.97))
+        }
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
         NSApp.activate()
 
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
+            ctx.duration = 0.2
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1
+        }
+        if let contentLayer = panel.contentView?.layer {
+            let anim = CABasicAnimation(keyPath: "transform.scale")
+            anim.fromValue = 0.97
+            anim.toValue = 1.0
+            anim.duration = 0.2
+            anim.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            contentLayer.setAffineTransform(.identity)
+            contentLayer.add(anim, forKey: "scaleIn")
         }
 
         ClipboardMonitor.shared.start()

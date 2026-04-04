@@ -65,7 +65,7 @@ struct ResponseView: View {
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary.opacity(0.7))
                     Spacer()
-                    CodeCopyButton(code: code)
+                    AuraCopyButton(text: code)
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
@@ -82,15 +82,15 @@ struct ResponseView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if language == nil {
-                    CodeCopyButton(code: code)
+                    AuraCopyButton(text: code)
                         .padding(8)
                 }
             }
         }
         .background(Color.codeBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.primary.opacity(0.08), lineWidth: 0.6)
         )
         .padding(.vertical, 4)
@@ -115,8 +115,8 @@ struct ResponseView: View {
             ForEach(items, id: \.0) { index, item in
                 HStack(alignment: .top, spacing: 8) {
                     Text(numbered ? "\(index + 1)." : "•")
-                        .font(.system(size: 14, weight: numbered ? .medium : .bold))
-                        .foregroundStyle(numbered ? .primary : Color.auraAccent)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.secondary)
                         .frame(minWidth: numbered ? 20 : 10, alignment: .leading)
                     Text(parseInline(item))
                         .font(.system(size: 14, weight: .regular))
@@ -280,31 +280,3 @@ struct ResponseView: View {
     }
 }
 
-private struct CodeCopyButton: View {
-    let code: String
-    @State private var copied = false
-
-    var body: some View {
-        Button {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(code, forType: .string)
-            withAnimation(.easeInOut(duration: 0.15)) { copied = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation(.easeInOut(duration: 0.15)) { copied = false }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 10, weight: .medium))
-                Text(copied ? "Copied" : "Copy")
-                    .font(.system(size: 11))
-            }
-            .foregroundStyle(copied ? Color(hex: 0x5CB85C) : .secondary)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(Color.primary.opacity(0.07))
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-}

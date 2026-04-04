@@ -17,7 +17,7 @@ final class ConversationStore {
 
     // MARK: - History
 
-    private(set) var inputHistory: [String] = []
+    var inputHistory: [String] = []
     private var historyIndex: Int? = nil
 
     func navigateHistory(up: Bool) -> String? {
